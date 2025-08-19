@@ -36,7 +36,7 @@ export async function* sendMessageStreamToAI(
         const contents: Content[] = [...history, { role: 'user', parts: messageParts }];
 
         const request: GenerateContentParameters = {
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents,
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
