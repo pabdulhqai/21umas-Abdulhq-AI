@@ -1,79 +1,60 @@
+// هذا ملف عميل: يستدعي دوال السيرفليس على نفس الدومين (Vercel)
+// يحتفظ بنفس واجهة الدوال المستخدمة في المكوّنات: fetchLatestNews, chatPro, analyzeVision
 
-import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
-import { SYSTEM_INSTRUCTION } from "../constants";
+type AIResult = { text: string, sources?: any[] };
 
-export class GeminiService {
-  private ai: GoogleGenAI;
-
-  constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  }
-
-  async fetchLatestNews() {
-    try {
-      // استخدام Gemini 3 Pro لجلب الأخبار الحية وتنسيقها كـ JSON
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-flash-latest',
-        contents: "استخرج آخر 4 أخبار أو إعلانات رسمية من موقع جامعة 21 سبتمبر (https://21umas.edu.ye/). ركز على الأخبار الحديثة جداً لعام 2024/2025. قم بصياغة النتيجة بتنسيق نصي يتضمن العنوان، التاريخ المختصر، ورابط المصدر إن وجد.",
-        config: {
-          tools: [{ googleSearch: {} }],
-          systemInstruction: "أنت محرك جلب بيانات أكاديمي. وظيفتك العثور على أحدث الأخبار من الموقع الرسمي حصراً وتنسيقها بشكل جذاب وقصير."
-        },
-      });
-
-      return {
-        text: response.text || "لا توجد أخبار جديدة حالياً.",
-        sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
-      };
-    } catch (error) {
-      console.error("News Fetch Error:", error);
-      return { text: "فشل تحديث الأخبار تلقائياً.", sources: [] };
-    }
-  }
-
-  async chatPro(prompt: string, history: any[] = []) {
-    try {
-      const response: GenerateContentResponse = await this.ai.models.generateContent({
-        model: 'gemini-flash-latest',
-        contents: [
-          ...history,
-          { role: 'user', parts: [{ text: prompt }] }
-        ],
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          tools: [{ googleSearch: {} }],
-          thinkingConfig: { thinkingBudget: 32768 }
-        },
-      });
-
-      return {
-        text: response.text || "لم يتم استلام رد.",
-        sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
-          title: chunk.web?.title || "مصدر أكاديمي",
-          uri: chunk.web?.uri || ""
-        })) || []
-      };
-    } catch (error) {
-      return { text: "حدث خطأ في النظام الذكي.", sources: [] };
-    }
-  }
-
-  async analyzeVision(imageBuffer: string, prompt: string) {
-    try {
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [
-            { inlineData: { data: imageBuffer, mimeType: 'image/jpeg' } },
-            { text: `كخبير أكاديمي وطبي في جامعة 21 سبتمبر، حلل هذه الوثيقة/الصورة: ${prompt}` }
-          ]
-        },
-      });
-      return response.text || "فشل التحليل.";
-    } catch (error) {
-      return "حدث خطأ أثناء تحليل الصورة.";
-    }
+async function safeFetchJson(url: string, init?: RequestInit) {
+  const resp = await fetch(url, init);
+  const text = await resp.text().catch(() => '');
+  try {
+    const json = text ? JSON.parse(text) : {};
+    if (!resp.ok) throw { status: resp.status, body: json };
+    return json;
+  } catch (err) {
+    // إذا الرد ليس JSON أو فشل، أعِد الخطأ مع نص الرد
+    if (!resp.ok) throw { status: resp.status, message: text || 'Request failed' };
+    return {};
   }
 }
 
-export const geminiService = new GeminiService();
+export const geminiService = {
+  async fetchLatestNews(): Promise<AIResult> {
+    try {
+      const json = await safeFetchJson('/api/geminiNews', { method: 'GET' });
+      return { text: json.text || '', sources: json.sources || [] };
+    } catch (err: any) {
+      console.error('fetchLatestNews error:', err);
+      return { text: 'فشل تحديث الأخبار تلقائياً.', sources: [] };
+    }
+  },
+
+  async chatPro(prompt: string, history: any[] = []): Promise<AIResult> {
+    try {
+      const body = { prompt, history };
+      const json = await safeFetchJson('/api/geminiChat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return { text: json.text || 'لم يتم استلام رد.', sources: json.sources || [] };
+    } catch (err: any) {
+      console.error('chatPro error:', err);
+      return { text: 'حدث خطأ في النظام الذكي.', sources: [] };
+    }
+  },
+
+  async analyzeVision(imageBuffer: string, prompt: string) {
+    try {
+      const body = { imageBuffer, mimeType: 'image/jpeg', prompt };
+      const json = await safeFetchJson('/api/geminiVision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return json.text || 'فشل التحليل.';
+    } catch (err: any) {
+      console.error('analyzeVision error:', err);
+      return 'حدث خطأ أثناء تحليل الصورة.';
+    }
+  }
+};
