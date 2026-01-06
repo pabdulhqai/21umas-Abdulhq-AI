@@ -1,8 +1,8 @@
 {
-  "name": "Copy of Abdulhq v3.5: University AI Assistant",
-  "description": "An advanced AI assistant for the 21st September University for Medical and Applied Sciences. Abdulhq acts as an enlightened guide for students, faculty, and staff, simplifying access to information and university services.",
+  "name": "Copy of 21UMAS AI Nexus v2.0",
+  "description": "المنصة الذكية المتكاملة لجامعة 21 سبتمبر - الإصدار الأحدث عالمياً في التعليم الطبي",
   "requestFramePermissions": [
-    "camera"
-  ],
-  "prompt": ""
+    "camera",
+    "microphone"
+  ]
 }

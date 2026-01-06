@@ -1,25 +1,20 @@
-export enum Sender {
-  USER = 'user',
-  AI = 'ai',
-  SYSTEM = 'system',
+
+export enum ToolType {
+  CHAT = 'CHAT',
+  VISION = 'VISION',
+  SEARCH = 'SEARCH',
+  ADVISOR = 'ADVISOR'
 }
 
-export interface ChatMessageFile {
-  name: string;
-  type: string; // MIME type
-  base64Data: string;
-}
-
-export interface ChatMessage {
-  id: string;
+export interface Message {
+  role: 'user' | 'model';
   text: string;
-  sender: Sender;
-  file?: ChatMessageFile;
-  groundingMetadata?: any;
+  timestamp: Date;
+  groundingSources?: Array<{ title: string; uri: string }>;
 }
 
-export interface ChatSummary {
-  id: string;
-  title: string;
-  createdAt: number;
+export interface UniversityInfo {
+  name: string;
+  url: string;
+  faculties: string[];
 }

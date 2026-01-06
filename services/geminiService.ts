@@ -1,77 +1,79 @@
-import { GoogleGenAI, Content, GenerateContentParameters, Part } from "@google/genai";
-import { SYSTEM_INSTRUCTION } from '../constants.ts';
-import type { ChatMessageFile } from '../types.ts';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
+import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
+import { SYSTEM_INSTRUCTION } from "../constants";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export class GeminiService {
+  private ai: GoogleGenAI;
 
-export async function* sendMessageStreamToAI(
-    history: Content[],
-    message: string, 
-    file: ChatMessageFile | undefined,
-    internetAccess: boolean,
-    signal: AbortSignal
-): AsyncGenerator<{ text: string, groundingMetadata: any | null }> {
+  constructor() {
+    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  }
+
+  async fetchLatestNews() {
     try {
-        const messageParts: Part[] = [];
+      // استخدام Gemini 3 Pro لجلب الأخبار الحية وتنسيقها كـ JSON
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: "استخرج آخر 4 أخبار أو إعلانات رسمية من موقع جامعة 21 سبتمبر (https://21umas.edu.ye/). ركز على الأخبار الحديثة جداً لعام 2024/2025. قم بصياغة النتيجة بتنسيق نصي يتضمن العنوان، التاريخ المختصر، ورابط المصدر إن وجد.",
+        config: {
+          tools: [{ googleSearch: {} }],
+          systemInstruction: "أنت محرك جلب بيانات أكاديمي. وظيفتك العثور على أحدث الأخبار من الموقع الرسمي حصراً وتنسيقها بشكل جذاب وقصير."
+        },
+      });
 
-        if (message.trim()) {
-            messageParts.push({ text: message });
-        }
-
-        if (file) {
-            messageParts.push({
-                inlineData: {
-                    mimeType: file.type,
-                    data: file.base64Data,
-                }
-            });
-        }
-        
-        if (messageParts.length === 0) return;
-
-        const contents: Content[] = [...history, { role: 'user', parts: messageParts }];
-
-        const request: GenerateContentParameters = {
-            model: 'gemini-2.5-flash',
-            contents,
-            config: {
-                systemInstruction: SYSTEM_INSTRUCTION,
-            }
-        };
-
-        if (internetAccess) {
-            if (!request.config) {
-                request.config = {};
-            }
-            request.config.tools = [{ googleSearch: {} }];
-        }
-
-        const responseStream = await ai.models.generateContentStream(request);
-
-        if (signal.aborted) return;
-        
-        let groundingMetadata: any | null = null;
-
-        for await (const chunk of responseStream) {
-            if (signal.aborted) {
-                return;
-            }
-            if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-                 groundingMetadata = chunk.candidates[0].groundingMetadata.groundingChunks;
-            }
-            yield { text: chunk.text, groundingMetadata };
-        }
-
+      return {
+        text: response.text || "لا توجد أخبار جديدة حالياً.",
+        sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
+      };
     } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          console.log('Stream aborted by user.');
-          throw error;
-        }
-        console.error("Error sending message to AI:", error);
-        yield { text: "I seem to be encountering a technical difficulty. My apologies. Please try again in a few moments.", groundingMetadata: null };
+      console.error("News Fetch Error:", error);
+      return { text: "فشل تحديث الأخبار تلقائياً.", sources: [] };
     }
+  }
+
+  async chatPro(prompt: string, history: any[] = []) {
+    try {
+      const response: GenerateContentResponse = await this.ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: [
+          ...history,
+          { role: 'user', parts: [{ text: prompt }] }
+        ],
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          tools: [{ googleSearch: {} }],
+          thinkingConfig: { thinkingBudget: 32768 }
+        },
+      });
+
+      return {
+        text: response.text || "لم يتم استلام رد.",
+        sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
+          title: chunk.web?.title || "مصدر أكاديمي",
+          uri: chunk.web?.uri || ""
+        })) || []
+      };
+    } catch (error) {
+      return { text: "حدث خطأ في النظام الذكي.", sources: [] };
+    }
+  }
+
+  async analyzeVision(imageBuffer: string, prompt: string) {
+    try {
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [
+            { inlineData: { data: imageBuffer, mimeType: 'image/jpeg' } },
+            { text: `كخبير أكاديمي وطبي في جامعة 21 سبتمبر، حلل هذه الوثيقة/الصورة: ${prompt}` }
+          ]
+        },
+      });
+      return response.text || "فشل التحليل.";
+    } catch (error) {
+      return "حدث خطأ أثناء تحليل الصورة.";
+    }
+  }
 }
+
+export const geminiService = new GeminiService();
