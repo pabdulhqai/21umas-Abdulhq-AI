@@ -13,7 +13,7 @@ export class GeminiService {
     try {
       // استخدام Gemini 3 Pro لجلب الأخبار الحية وتنسيقها كـ JSON
       const response = await this.ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-flash-latest',
         contents: "استخرج آخر 4 أخبار أو إعلانات رسمية من موقع جامعة 21 سبتمبر (https://21umas.edu.ye/). ركز على الأخبار الحديثة جداً لعام 2024/2025. قم بصياغة النتيجة بتنسيق نصي يتضمن العنوان، التاريخ المختصر، ورابط المصدر إن وجد.",
         config: {
           tools: [{ googleSearch: {} }],
@@ -34,7 +34,7 @@ export class GeminiService {
   async chatPro(prompt: string, history: any[] = []) {
     try {
       const response: GenerateContentResponse = await this.ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-flash-latest',
         contents: [
           ...history,
           { role: 'user', parts: [{ text: prompt }] }
