@@ -1,0 +1,8 @@
+{
+  "name": "Copy of 21UMAS AI Nexus v2.0",
+  "description": "المنصة الذكية المتكاملة لجامعة 21 سبتمبر - الإصدار الأحدث عالمياً في التعليم الطبي",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
