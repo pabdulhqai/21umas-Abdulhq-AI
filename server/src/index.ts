@@ -22,7 +22,7 @@ const SYSTEM_INSTRUCTION = process.env.SYSTEM_INSTRUCTION || '';
 app.post('/api/news', async (req, res) => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-pro',
       contents: "استخرج آخر 4 أخبار أو إعلانات رسمية من موقع جامعة 21 سبتمبر (https://21umas.edu.ye/). ركز على الأخبار الحديثة جداً لعام 2024/2025. قم بصياغة النتيجة بتنسيق نصي يتضمن العنوان، التاريخ المختصر، ورابط المصدر إن وجد.",
       config: {
         tools: [{ googleSearch: {} }],
@@ -49,7 +49,7 @@ app.post('/api/chat', async (req, res) => {
     ];
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-flash',
       contents,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
